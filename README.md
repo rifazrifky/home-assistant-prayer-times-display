@@ -156,6 +156,7 @@ Aladhan API ──► integration (per location) ──► sensors ──► aut
 - **If Aladhan can't be reached** when a new day starts, the sensors show as unavailable and the fetch is retried every 5 minutes until it works. If it fails during setup, Home Assistant retries setting the location up on its own.
 - **Times are stored as moments in time**, not text, so they're shown in each user's own 12/24-hour format and time zone, and work directly as automation triggers.
 - **The card is served by the integration** and loaded on every dashboard automatically. It reads the location's *Weekly schedule* sensor and works out the current and next prayer in your browser, re-checking every 30 seconds.
+- **The card is also kept in your dashboard resources** (**Settings → Dashboards → ⋮ → Resources**) as `/prayer_times_display/prayer-times-display-card.js`, so it works when a dashboard is [cast to a display](#casting-to-a-google-nest-hub-or-other-cast-display). The integration adds this entry, updates its version after each upgrade and removes it when you delete the last location. Browsers still load the card only once.
 
 ## Entities
 
@@ -267,6 +268,19 @@ rendering_style: horizontal
 - In a **sections** dashboard the card starts full width; resize it from the card's **Layout** tab. The vertical 7-day timeline is about 1,100 px wide and shrinks to fit narrower spaces.
 - The **focus** and **vertical table** designs suit narrow columns and phones.
 - On phones and in wide columns, set `alignment: stretch` (**Full width**) so the content fills the card instead of sitting in the middle or at one side.
+
+### Casting to a Google Nest Hub or other Cast display
+
+Dashboards cast with Home Assistant Cast (for example to a Google Nest Hub) only load the dashboard's resources, not cards that integrations load by themselves. The integration therefore keeps the card in your dashboard resources, so the card works on Cast displays without any setup.
+
+If your dashboard resources are managed in YAML (`lovelace: resource_mode: yaml` or `mode: yaml`), the integration can't edit them. Add the card yourself, and update the version number after each upgrade:
+
+```yaml
+lovelace:
+  resources:
+    - url: /prayer_times_display/prayer-times-display-card.js?v=1.3.1
+      type: module
+```
 
 ### Themes
 
@@ -421,6 +435,9 @@ template:
 
 ## Troubleshooting and FAQ
 
+**The card shows "Configuration error" on a Google Nest Hub or other Cast display.**
+Update to version 1.3.1 or later and restart Home Assistant, so the card is added to your dashboard resources, then cast the dashboard again. If your resources are managed in YAML, add the card as a resource by hand; see [Casting](#casting-to-a-google-nest-hub-or-other-cast-display).
+
 **The card is missing from the card picker, or shows "Custom element not found: prayer-times-display-card".**
 The card is loaded once the integration has been set up, but your browser may still be using a cached copy of Home Assistant from before. Reload with Ctrl+F5. If that doesn't help, open the browser's developer tools (F12) → **Application → Service workers**, click **Unregister**, and reload again. On the mobile app, use **Settings → Companion app → Debugging → Reset frontend cache**.
 
@@ -466,7 +483,7 @@ HACS shows an update when a new release is published. Update, then restart Home 
 ### Removing
 
 1. Go to **Settings → Devices & services → Prayer Times Display**, open the menu (⋮) on each location and choose **Delete**.
-2. Remove any cards using `custom:prayer-times-display-card` from your dashboards.
+2. Remove any cards using `custom:prayer-times-display-card` from your dashboards. Deleting the last location also removes the card from your dashboard resources; if you added it to YAML resources yourself, remove it there.
 3. If installed with HACS, remove it in HACS; otherwise delete `custom_components/prayer_times_display`.
 4. Restart Home Assistant.
 
@@ -482,6 +499,7 @@ custom_components/prayer_times_display/
 ├── const.py             Calculation methods, country suggestions, prayer names
 ├── coordinator.py       Keeps the rolling 7 days and fetches new days
 ├── geocode.py           Open-Meteo place search
+├── dashboard.py         Keeps the card in the dashboard resources (for casting)
 ├── sensor.py            Today, tomorrow and weekly schedule sensors
 ├── manifest.json        Integration metadata and version
 ├── icons.json           Entity icons

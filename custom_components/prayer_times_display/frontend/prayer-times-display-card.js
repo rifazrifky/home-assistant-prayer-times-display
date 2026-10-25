@@ -5,7 +5,7 @@
 // - days: how many days to show, 1 (today only) to 7
 // - design: table | focus | timeline
 // - rendering_style: vertical | horizontal
-// - alignment: left | center | right
+// - alignment: left | center | right | stretch (content fills the card's width)
 
 const DOMAIN = "prayer_times_display";
 const CARD_TYPE = "prayer-times-display-card";
@@ -78,6 +78,11 @@ const STYLES = `
   .align-left { justify-content: flex-start; }
   .align-center { justify-content: center; }
   .align-right { justify-content: flex-end; }
+  /* Full width: each design's content fills the card */
+  .align-stretch > * { flex: 1 1 auto; min-width: 0; }
+  .align-stretch table { width: 100%; }
+  .align-stretch .focus.horizontal .rows { flex: 1 1 auto; }
+  .align-stretch .chip { flex: 1 1 0; }
   ha-icon { --mdc-icon-size: 20px; color: var(--ptd-muted); }
 
   .tag {
@@ -316,8 +321,8 @@ class PrayerTimesDisplayCard extends HTMLElement {
     }
 
     const alignment = (config.alignment || "left").toLowerCase();
-    if (!["left", "center", "right"].includes(alignment)) {
-      throw new Error("alignment must be 'left', 'center', or 'right'");
+    if (!["left", "center", "right", "stretch"].includes(alignment)) {
+      throw new Error("alignment must be 'left', 'center', 'right', or 'stretch'");
     }
 
     const days = Number(config.days ?? 1);
@@ -347,10 +352,13 @@ class PrayerTimesDisplayCard extends HTMLElement {
   connectedCallback() {
     // Keeps the current/next prayer and countdown moving between state updates
     this._timer = setInterval(() => this._render(), TICK_MS);
-    // The horizontal timeline is drawn to fit the card's width
+    // The timeline is drawn to fit the card's width. Redraw on the next frame,
+    // not inside the observer, so the redraw can't re-trigger it in a loop.
     this._resize = new ResizeObserver(() => {
       if (this._config?.design !== "timeline") return;
-      if (Math.abs(this.clientWidth - (this._drawnWidth || 0)) > 8) this._render();
+      if (Math.abs(this.clientWidth - (this._drawnWidth || 0)) <= 8) return;
+      cancelAnimationFrame(this._resizeFrame);
+      this._resizeFrame = requestAnimationFrame(() => this._render());
     });
     this._resize.observe(this);
     this._render();
@@ -358,6 +366,7 @@ class PrayerTimesDisplayCard extends HTMLElement {
 
   disconnectedCallback() {
     clearInterval(this._timer);
+    cancelAnimationFrame(this._resizeFrame);
     this._resize?.disconnect();
   }
 
@@ -754,8 +763,13 @@ class PrayerTimesDisplayCard extends HTMLElement {
     const n = days.length;
     const height = 560;
     const top = 70;
-    const colWidth = n >= 5 ? 150 : 200;
     const left = 56;
+    // At full width the day columns spread across the card
+    let colWidth = n >= 5 ? 150 : 200;
+    if (this._config.alignment === "stretch") {
+      this._drawnWidth = this.clientWidth;
+      colWidth = Math.max(colWidth, ((this.clientWidth || 0) - 32 - left - 10) / n);
+    }
     const y = (m) => top + ((m - start) / (end - start)) * height;
     const svg = this._svg(left + colWidth * n + 10, top + height + 24);
 
@@ -871,6 +885,7 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
           { value: "left", label: "Left" },
           { value: "center", label: "Center" },
           { value: "right", label: "Right" },
+          { value: "stretch", label: "Full width" },
         ]),
       },
     ];
@@ -886,6 +901,7 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
     const helpers = {
       days: "1 shows today only, 2 adds tomorrow, up to 7 days.",
       design: "Table: times in a grid. Next prayer focus: a large countdown to the next prayer. Timeline: each day drawn as a line through the day.",
+      alignment: "Where the content sits when the card is wider than it. Full width stretches it to fill the card.",
     };
     this._form.computeLabel = (schema) => labels[schema.name] ?? schema.name;
     this._form.computeHelper = (schema) => helpers[schema.name];

@@ -54,6 +54,13 @@ from .geocode import GeocodingError, Place, async_search
 CONF_QUERY = "query"
 CONF_PLACE = "place"
 
+# Credit links shown in the setup steps; Home Assistant doesn't allow URLs in
+# translation strings, so they're passed in as description placeholders
+LINKS = {
+    "aladhan_url": "https://aladhan.com",
+    "open_meteo_url": "https://open-meteo.com",
+}
+
 # Coordinates closer than this (about 10 cm) count as unchanged
 COORDINATE_TOLERANCE = 1e-6
 
@@ -130,6 +137,7 @@ class PrayerTimesConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(schema, user_input),
             errors=errors,
+            description_placeholders=LINKS,
         )
 
     async def async_step_pick(
@@ -325,6 +333,7 @@ class PrayerTimesConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id=step_id,
             data_schema=self.add_suggested_values_to_schema(schema, suggested),
             errors=errors,
+            description_placeholders=LINKS,
         )
 
 

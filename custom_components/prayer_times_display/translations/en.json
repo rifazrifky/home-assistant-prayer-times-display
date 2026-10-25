@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Add a prayer times location",
-        "description": "Search for a city or town. Leave blank to use your home location.\n\nPlace search by [Open-Meteo](https://open-meteo.com) (CC BY 4.0).",
+        "description": "Search for a city or town. Leave blank to use your home location.\n\nPlace search by [Open-Meteo]({open_meteo_url}) (CC BY 4.0).",
         "data": {
           "query": "Search location"
         },
@@ -20,7 +20,7 @@
       },
       "location": {
         "title": "Confirm the location",
-        "description": "Prayer times are calculated by [Aladhan](https://aladhan.com) for this point. If you move the pin or edit the coordinates, the time zone is refreshed when you submit, so you can check it before saving. Update the name and method yourself if needed.",
+        "description": "Prayer times are calculated by [Aladhan]({aladhan_url}) for this point. If you move the pin or edit the coordinates, the time zone is refreshed when you submit, so you can check it before saving. Update the name and method yourself if needed.",
         "data": {
           "location": "Location",
           "latitude": "Latitude",

@@ -8,7 +8,7 @@
           "query": "Search location"
         },
         "data_description": {
-          "query": "For example \"Dubai\" or \"Toronto\"."
+          "query": "For example \"London\" or \"Toronto\"."
         }
       },
       "pick": {
@@ -32,7 +32,7 @@
         },
         "data_description": {
           "latitude": "Editing the coordinates takes priority over the map pin.",
-          "name": "Used for the device and entity names, for example \"Dubai\".",
+          "name": "Used for the device and entity names, for example \"Home\" or \"Toronto\".",
           "method": "Suggested for the country. Use the authority followed locally so times match announcements."
         }
       },
@@ -50,7 +50,7 @@
         },
         "data_description": {
           "latitude": "Editing the coordinates takes priority over the map pin.",
-          "name": "Used for the device and entity names, for example \"Dubai\".",
+          "name": "Used for the device and entity names, for example \"Home\" or \"Toronto\".",
           "method": "Suggested for the country. Use the authority followed locally so times match announcements."
         }
       }

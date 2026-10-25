@@ -1,0 +1,25 @@
+{
+  "entity": {
+    "sensor": {
+      "schedule": { "default": "mdi:calendar-week" },
+      "today_date": { "default": "mdi:calendar" },
+      "today_hijri_date": { "default": "mdi:calendar-star" },
+      "today_imsak": { "default": "mdi:food-off" },
+      "today_fajr": { "default": "mdi:weather-sunset-up" },
+      "today_sunrise": { "default": "mdi:weather-sunny" },
+      "today_dhuhr": { "default": "mdi:white-balance-sunny" },
+      "today_asr": { "default": "mdi:weather-partly-cloudy" },
+      "today_maghrib": { "default": "mdi:weather-sunset-down" },
+      "today_isha": { "default": "mdi:weather-night" },
+      "tomorrow_date": { "default": "mdi:calendar" },
+      "tomorrow_hijri_date": { "default": "mdi:calendar-star" },
+      "tomorrow_imsak": { "default": "mdi:food-off" },
+      "tomorrow_fajr": { "default": "mdi:weather-sunset-up" },
+      "tomorrow_sunrise": { "default": "mdi:weather-sunny" },
+      "tomorrow_dhuhr": { "default": "mdi:white-balance-sunny" },
+      "tomorrow_asr": { "default": "mdi:weather-partly-cloudy" },
+      "tomorrow_maghrib": { "default": "mdi:weather-sunset-down" },
+      "tomorrow_isha": { "default": "mdi:weather-night" }
+    }
+  }
+}

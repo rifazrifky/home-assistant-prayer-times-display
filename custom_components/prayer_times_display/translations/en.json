@@ -1,0 +1,136 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a prayer times location",
+        "description": "Search for a city or town. Leave blank to use your home location.\n\nPlace search by [Open-Meteo](https://open-meteo.com) (CC BY 4.0).",
+        "data": {
+          "query": "Search location"
+        },
+        "data_description": {
+          "query": "For example \"Dubai\" or \"Toronto\"."
+        }
+      },
+      "pick": {
+        "title": "Choose the location",
+        "description": "Several places matched. Pick one, or type a different name to search again.",
+        "data": {
+          "place": "Location"
+        }
+      },
+      "location": {
+        "title": "Confirm the location",
+        "description": "Prayer times are calculated by [Aladhan](https://aladhan.com) for this point. If you move the pin or edit the coordinates, the time zone is refreshed when you submit, so you can check it before saving. Update the name and method yourself if needed.",
+        "data": {
+          "location": "Location",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "name": "Name",
+          "time_zone": "Time zone",
+          "method": "Calculation method",
+          "school": "Asr juristic method"
+        },
+        "data_description": {
+          "latitude": "Editing the coordinates takes priority over the map pin.",
+          "name": "Used for the device and entity names, for example \"Dubai\".",
+          "method": "Suggested for the country. Use the authority followed locally so times match announcements."
+        }
+      },
+      "location_updated": {
+        "title": "Check the updated details",
+        "description": "The location changed, so the time zone below was updated to match (unless you picked one yourself). The name and calculation method weren't changed. Check them all, then submit again to save.",
+        "data": {
+          "location": "Location",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "name": "Name",
+          "time_zone": "Time zone",
+          "method": "Calculation method",
+          "school": "Asr juristic method"
+        },
+        "data_description": {
+          "latitude": "Editing the coordinates takes priority over the map pin.",
+          "name": "Used for the device and entity names, for example \"Dubai\".",
+          "method": "Suggested for the country. Use the authority followed locally so times match announcements."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not fetch prayer times from Aladhan for this location.",
+      "invalid_time_zone": "Unknown time zone.",
+      "no_results": "No places found. Try a different spelling or a nearby larger town.",
+      "search_failed": "The location search service could not be reached. Try again, or leave the search blank to use your home location."
+    },
+    "abort": {
+      "already_configured": "This location is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "method": "Calculation method",
+          "school": "Asr juristic method"
+        }
+      }
+    }
+  },
+  "selector": {
+    "method": {
+      "options": {
+        "0": "Shia Ithna-Ashari, Leva Institute, Qum",
+        "1": "University of Islamic Sciences, Karachi",
+        "2": "Islamic Society of North America (ISNA)",
+        "3": "Muslim World League",
+        "4": "Umm Al-Qura University, Makkah",
+        "5": "Egyptian General Authority of Survey",
+        "7": "Institute of Geophysics, University of Tehran",
+        "8": "Gulf Region",
+        "9": "Kuwait",
+        "10": "Qatar",
+        "11": "Majlis Ugama Islam Singapura",
+        "12": "Union Organization Islamic de France",
+        "13": "Diyanet İşleri Başkanlığı, Turkey",
+        "14": "Spiritual Administration of Muslims of Russia",
+        "15": "Moonsighting Committee Worldwide",
+        "16": "Dubai",
+        "17": "Jabatan Kemajuan Islam Malaysia (JAKIM)",
+        "18": "Tunisia",
+        "19": "Algeria",
+        "20": "Kementerian Agama Republik Indonesia",
+        "21": "Morocco",
+        "22": "Comunidade Islamica de Lisboa",
+        "23": "Ministry of Awqaf, Jordan"
+      }
+    },
+    "school": {
+      "options": {
+        "0": "Standard (Shafi, Maliki, Hanbali)",
+        "1": "Hanafi"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "schedule": { "name": "Weekly schedule" },
+      "today_date": { "name": "Date" },
+      "today_hijri_date": { "name": "Hijri date" },
+      "today_imsak": { "name": "Imsak" },
+      "today_fajr": { "name": "Fajr" },
+      "today_sunrise": { "name": "Sunrise" },
+      "today_dhuhr": { "name": "Dhuhr" },
+      "today_asr": { "name": "Asr" },
+      "today_maghrib": { "name": "Maghrib" },
+      "today_isha": { "name": "Isha" },
+      "tomorrow_date": { "name": "Tomorrow date" },
+      "tomorrow_hijri_date": { "name": "Tomorrow Hijri date" },
+      "tomorrow_imsak": { "name": "Tomorrow Imsak" },
+      "tomorrow_fajr": { "name": "Tomorrow Fajr" },
+      "tomorrow_sunrise": { "name": "Tomorrow sunrise" },
+      "tomorrow_dhuhr": { "name": "Tomorrow Dhuhr" },
+      "tomorrow_asr": { "name": "Tomorrow Asr" },
+      "tomorrow_maghrib": { "name": "Tomorrow Maghrib" },
+      "tomorrow_isha": { "name": "Tomorrow Isha" }
+    }
+  }
+}

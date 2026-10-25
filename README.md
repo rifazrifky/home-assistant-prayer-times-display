@@ -199,7 +199,7 @@ alignment: left
 | `days` | `1` | How many days to show: `1` (today only) to `7`. `2` adds tomorrow; later days are labelled with the weekday |
 | `design` | `table` | `table`, `focus` or `timeline`; see below |
 | `rendering_style` | `vertical` | `vertical` or `horizontal`; see below |
-| `alignment` | `left` | `left`, `center` or `right`, for the table and focus designs when the card is wider than its content |
+| `alignment` | `left` | Where the content sits when the card is wider than it: `left`, `center` or `right`, or `stretch` (**Full width** in the visual editor) to make it fill the card. With `stretch`, table columns, the focus panel and list, and the vertical timeline's day columns spread across the whole card |
 
 ### Current and next prayer
 
@@ -266,6 +266,7 @@ rendering_style: horizontal
 - **3 or more days** read best in the horizontal table or the horizontal timeline, shown full width.
 - In a **sections** dashboard the card starts full width; resize it from the card's **Layout** tab. The vertical 7-day timeline is about 1,100 px wide and shrinks to fit narrower spaces.
 - The **focus** and **vertical table** designs suit narrow columns and phones.
+- On phones and in wide columns, set `alignment: stretch` (**Full width**) so the content fills the card instead of sitting in the middle or at one side.
 
 ### Themes
 

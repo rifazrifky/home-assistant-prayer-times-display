@@ -45,6 +45,7 @@ Daily Islamic prayer times for any location in Home Assistant: sensors you can a
   - **Timeline**: 1 to 7 days, each drawn as a line through the day
   - **Now and next**: just the current and next prayer, side by side or stacked
   - **Countdown ring**: a ring counting down to the next prayer
+- **Tap the card for the coming days**: a popup with up to 7 days of times, in a compact grid on phones.
 - **Current and next prayer highlighted**, updating live, with passed prayers dimmed.
 - **23 calculation methods** and Standard or Hanafi Asr, changeable at any time.
 - **Follows your Home Assistant settings**: 12/24-hour time, language for dates, time zone and theme colours.
@@ -203,6 +204,9 @@ alignment: left
 | `design` | `table` | `table`, `focus`, `timeline`, `now_next` or `ring`; see below |
 | `rendering_style` | `vertical` | `vertical` or `horizontal`; see below |
 | `alignment` | `left` | Where the content sits when the card is wider than it: `left`, `center` or `right`, or `stretch` (**Full width** in the visual editor) to make it fill the card. With `stretch`, table columns, the focus panel and list, and the vertical timeline's day columns spread across the whole card |
+| `tap_action` | `action: schedule` | What tapping the card does. `schedule` opens the [schedule popup](#tap-for-the-coming-days); `none` does nothing; any other [Home Assistant action](https://www.home-assistant.io/dashboards/actions/) (`navigate`, `more-info`, `url`, `perform-action`…) works as on built-in cards. **When tapped** in the visual editor |
+| `popup_design` | `table` | `table` or `timeline`: how the popup shows the days on wider screens. Phones always get the compact grid |
+| `popup_days` | `7` | How many days the popup shows, `2` to `7` |
 
 ### Current and next prayer
 
@@ -295,6 +299,34 @@ rendering_style: vertical
 
 Both designs ignore `days`. When no prayer is current, between sunrise and Dhuhr or before Fajr, they say so ("No prayer time · Fajr ended at sunrise, 6:22 am"). After Isha, the next prayer is labelled **tomorrow**.
 
+### Tap for the coming days
+
+Tap any of the designs, or press Enter or Space when it has keyboard focus, and a popup opens over the dashboard with the next 7 days. It has the same current and next prayer highlighting as the card, and keeps updating while it's open. Close it with ✕, Esc, a click outside it, or the back button on Android.
+
+- **On phones** (screens narrower than 600 px) the popup fills the screen and shows a **compact grid**: a row per day and a column per time, so the whole week fits without scrolling. To save space, times leave out am/pm where it's the usual one: Suhoor, Fajr and Sunrise in the morning, Dhuhr to Isha in the afternoon and evening. A time outside that, such as a Dhuhr before noon or an Isha after midnight, keeps its am/pm.
+- **On wider screens** it shows the table or the timeline, chosen with `popup_design` (**Popup design**), laid out vertically or horizontally like the card (`rendering_style`). If the design doesn't fit, for example the 7-day table on a tablet in portrait, the compact grid is used instead.
+
+| Phone | Wider screen: table | Wider screen: timeline |
+| --- | --- | --- |
+| <img src="docs/images/card-popup-phone.png" alt="Schedule popup on a phone, compact grid" width="260"> | <img src="docs/images/card-popup-table.png" alt="Schedule popup with the table" width="420"> | <img src="docs/images/card-popup-timeline.png" alt="Schedule popup with the timeline" width="420"> |
+
+```yaml
+type: custom:prayer-times-display-card
+design: now_next
+popup_design: timeline
+popup_days: 7
+```
+
+To do something else when the card is tapped, set `tap_action`, for example to open another dashboard view, or a pop-up from another card such as Bubble Card:
+
+```yaml
+tap_action:
+  action: navigate
+  navigation_path: "#prayer-times"
+```
+
+Set `tap_action: { action: none }` to turn tapping off.
+
 ### Layout tips
 
 - **3 or more days** read best in the horizontal table or the horizontal timeline, shown full width.
@@ -302,17 +334,20 @@ Both designs ignore `days`. When no prayer is current, between sunrise and Dhuhr
 - The **focus**, **now and next**, **countdown ring** and **vertical table** designs suit narrow columns and phones.
 - **Now and next** and **countdown ring** make good compact cards for a wall tablet or the top of a dashboard.
 - On phones and in wide columns, set `alignment: stretch` (**Full width**) so the content fills the card instead of sitting in the middle or at one side.
+- A **compact card with the popup** works well on phones: show **now and next** or the **countdown ring** on the dashboard, and tap it when you want the week.
 
 ### Casting to a Google Nest Hub or other Cast display
 
 Dashboards cast with Home Assistant Cast (for example to a Google Nest Hub) only load the dashboard's resources, not cards that integrations load by themselves. The integration therefore keeps the card in your dashboard resources, so the card works on Cast displays without any setup.
+
+Cast displays only show the dashboard; taps aren't passed to it, so the [schedule popup](#tap-for-the-coming-days) can't be opened there. To show more days on a Cast display, use a design with `days: 7`, or cast a second view that has one.
 
 If your dashboard resources are managed in YAML (`lovelace: resource_mode: yaml` or `mode: yaml`), the integration can't edit them. Add the card yourself, and update the version number after each upgrade:
 
 ```yaml
 lovelace:
   resources:
-    - url: /prayer_times_display/prayer-times-display-card.js?v=1.3.1
+    - url: /prayer_times_display/prayer-times-display-card.js?v=1.5.0
       type: module
 ```
 

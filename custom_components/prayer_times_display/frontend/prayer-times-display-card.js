@@ -6,6 +6,9 @@
 // - design: table | focus | timeline | now_next | ring
 // - rendering_style: vertical | horizontal
 // - alignment: left | center | right | stretch (content fills the card's width)
+// - tap_action: { action: schedule } (default) opens a popup with the coming
+//   days; { action: none } or any Home Assistant action (navigate, more-info…)
+// - popup_design: table | timeline, and popup_days: 2 to 7 (default 7)
 
 const DOMAIN = "prayer_times_display";
 const CARD_TYPE = "prayer-times-display-card";
@@ -16,6 +19,9 @@ const EMPTY = "—";
 const DESIGNS = ["table", "focus", "timeline", "now_next", "ring"];
 // Designs that show only the current and next prayer: "Days to show" doesn't apply
 const NOW_NEXT_DESIGNS = ["now_next", "ring"];
+const POPUP_DESIGNS = ["table", "timeline"];
+// Below this screen width the popup fills the screen and shows the compact grid
+const COMPACT_WIDTH = 600;
 // How often the current/next prayer and countdown are re-checked
 const TICK_MS = 30000;
 
@@ -263,6 +269,94 @@ const STYLES = `
   .lg-span { width: 18px; height: 5px; border-radius: 3px; background: var(--ptd-now); }
   .lg-next { width: 9px; height: 9px; border-radius: 50%; background: var(--ptd-next); }
   .lg-now { width: 2px; height: 12px; background: var(--error-color, #ff7043); }
+
+  /* tap to open the schedule */
+  ha-card.tappable { cursor: pointer; }
+  ha-card.tappable:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+
+  /* schedule popup */
+  dialog.popup {
+    border: 0;
+    padding: 0;
+    color: var(--primary-text-color);
+    background: var(--ha-dialog-surface-background, var(--mdc-theme-surface, var(--card-background-color, #fff)));
+    border-radius: var(--ha-dialog-border-radius, 28px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    width: fit-content;
+    min-width: 560px;
+    max-width: min(1240px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    overflow: hidden;
+    /* Centred with a transform: with the browser's own centring, Chrome can
+       leave empty space below the content */
+    height: auto;
+    inset-block: auto;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  dialog.popup:focus { outline: none; }
+  dialog.popup.fill { width: min(1240px, calc(100vw - 32px)); }
+  dialog.popup::backdrop { background: var(--mdc-dialog-scrim-color, rgba(0, 0, 0, 0.5)); }
+  .popup-wrap { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
+  .popup-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 20px 12px 12px 24px;
+    border-bottom: 1px solid var(--ptd-line);
+  }
+  .popup-head .title { flex: 1; min-width: 0; font-size: 20px; }
+  .popup-head .pills { margin-top: 8px; }
+  .popup-close {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--primary-text-color);
+    cursor: pointer;
+  }
+  .popup-close:hover, .popup-close:focus-visible { background: var(--ptd-line); outline: none; }
+  .popup-close ha-icon { --mdc-icon-size: 24px; color: inherit; }
+  .popup-scroll { overflow: auto; padding: 8px 8px 12px; }
+  @media (max-width: 599px) {
+    dialog.popup, dialog.popup.fill {
+      width: 100vw;
+      max-width: 100vw;
+      min-width: 0;
+      height: 100dvh;
+      max-height: 100dvh;
+      margin: 0;
+      top: 0;
+      transform: none;
+      border-radius: 0;
+    }
+    .popup-wrap { height: 100%; max-height: none; }
+    .popup-head { padding: 12px 8px 8px 16px; }
+    .popup-head .title { font-size: 18px; }
+    .popup-scroll { padding: 4px 0 16px; }
+  }
+
+  /* compact week grid (popup on phones) */
+  table.week { width: 100%; table-layout: fixed; font-size: 13px; }
+  .week th, .week td { padding: 0; border-top: 0; text-align: center; vertical-align: middle; white-space: nowrap; }
+  .week thead th { padding: 6px 0 8px; font-size: 10px; font-weight: 500; color: var(--ptd-muted); }
+  .week thead .colicon { margin-bottom: 2px; }
+  .week thead ha-icon { --mdc-icon-size: 18px; }
+  .week thead th:first-child { width: 52px; }
+  .week tbody tr { border-top: 1px solid var(--ptd-line); }
+  .week tbody th { padding: 10px 0 10px 4px; text-align: left; font-size: 13px; line-height: 1.25; }
+  .week tbody th .sub { font-size: 11px; }
+  .week tbody tr.today th { color: var(--ptd-next); }
+  .week td span { display: inline-block; min-width: 38px; padding: 4px 2px; border-radius: 8px; }
+  .week td.minor { color: var(--ptd-muted); }
+  .week td.s-past { opacity: 0.5; }
+  .week td.s-current span { background: var(--ptd-now-soft); color: var(--ptd-now); font-weight: 700; }
+  .week td.s-next span { background: var(--ptd-next-soft); color: var(--ptd-next); font-weight: 700; }
+  .week-note { margin: 10px 4px 0; font-size: 12px; color: var(--ptd-muted); }
 `;
 
 // ---------- helpers ----------
@@ -346,12 +440,38 @@ function prayerStatus(days, now) {
   return { current, next, since };
 }
 
+// How the card's tap action shows in the editor: schedule, action or none
+function tapMode(tapAction) {
+  const action = tapAction?.action;
+  if (!action || action === "schedule") return "schedule";
+  return action === "none" ? "none" : "action";
+}
+
 // ---------- card ----------
 
 class PrayerTimesDisplayCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
+    // Taps on the card (but not inside the popup) run the tap action
+    this.addEventListener("click", (ev) => {
+      if (!this._inPopup(ev)) this._tap(false);
+    });
+    this.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      if (this._inPopup(ev) || ev.composedPath()[0]?.tagName !== "HA-CARD") return;
+      ev.preventDefault();
+      this._tap(true);
+    });
+    // The back button closes the popup, as it does for Home Assistant's dialogs
+    this._onPopState = () => {
+      this._historyEntry = false;
+      this._dialog?.close();
+    };
+    this._onResize = () => {
+      cancelAnimationFrame(this._popupFrame);
+      this._popupFrame = requestAnimationFrame(() => this._renderPopup());
+    };
   }
 
   setConfig(config) {
@@ -375,6 +495,21 @@ class PrayerTimesDisplayCard extends HTMLElement {
       throw new Error(`days must be a whole number from 1 to ${MAX_DAYS}`);
     }
 
+    const tapAction = config.tap_action ?? { action: "schedule" };
+    if (typeof tapAction !== "object" || typeof tapAction.action !== "string") {
+      throw new Error("tap_action must have an action, for example 'schedule' or 'none'");
+    }
+
+    const popupDesign = (config.popup_design || "table").toLowerCase();
+    if (!POPUP_DESIGNS.includes(popupDesign)) {
+      throw new Error(`popup_design must be one of: ${POPUP_DESIGNS.join(", ")}`);
+    }
+
+    const popupDays = Number(config.popup_days ?? MAX_DAYS);
+    if (!Number.isInteger(popupDays) || popupDays < 2 || popupDays > MAX_DAYS) {
+      throw new Error(`popup_days must be a whole number from 2 to ${MAX_DAYS}`);
+    }
+
     this._config = {
       device_id: config.device_id,
       design,
@@ -382,6 +517,9 @@ class PrayerTimesDisplayCard extends HTMLElement {
       alignment,
       days,
       title: config.title ?? DEFAULT_TITLE,
+      tap_action: tapAction,
+      popup_design: popupDesign,
+      popup_days: popupDays,
     };
     this._lookup = null;
     this._render();
@@ -413,6 +551,7 @@ class PrayerTimesDisplayCard extends HTMLElement {
     clearInterval(this._timer);
     cancelAnimationFrame(this._resizeFrame);
     this._resize?.disconnect();
+    this._dialog?.close();
   }
 
   static getConfigElement() {
@@ -540,8 +679,20 @@ class PrayerTimesDisplayCard extends HTMLElement {
         ? "The selected prayer times location was not found."
         : "No prayer times found. Add the Prayer Times Display integration first.";
       card.append(alert);
-      this.shadowRoot.replaceChildren(style, card);
+      this._show(style, card);
+      this._dialog?.close();
       return;
+    }
+
+    const action = this._config.tap_action.action;
+    if (action !== "none") {
+      card.classList.add("tappable");
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      if (action === "schedule") {
+        card.setAttribute("aria-haspopup", "dialog");
+        card.setAttribute("aria-label", `${this._config.title || DEFAULT_TITLE}: show the schedule for the coming days`);
+      }
     }
 
     const all = this._allDays();
@@ -553,7 +704,9 @@ class PrayerTimesDisplayCard extends HTMLElement {
     if (this._config.design === "focus") {
       body.append(this._renderFocus(days, status, vertical));
     } else if (this._config.design === "timeline") {
-      body.append(this._renderTimeline(days, status, vertical));
+      // The timeline is drawn to fit the card; the resize observer compares against this
+      this._drawnWidth = this.clientWidth;
+      body.append(this._renderTimeline(days, status, vertical, this.clientWidth, this._config.alignment === "stretch"));
     } else if (this._config.design === "now_next") {
       body.append(this._renderNowNext(status, vertical));
     } else if (this._config.design === "ring") {
@@ -565,7 +718,17 @@ class PrayerTimesDisplayCard extends HTMLElement {
     // Designs that already show now and next don't repeat them as header badges
     const pills = !["focus", ...NOW_NEXT_DESIGNS].includes(this._config.design);
     card.append(this._renderHead(days[0], status, pills), body);
-    this.shadowRoot.replaceChildren(style, card);
+    this._show(style, card);
+    this._renderPopup();
+  }
+
+  // Replaces the card's content, leaving the popup in place: taking an open
+  // dialog out of the page would close it
+  _show(...nodes) {
+    const focused = this.shadowRoot.activeElement?.tagName === "HA-CARD";
+    for (const child of [...this.shadowRoot.childNodes]) if (child !== this._dialog) child.remove();
+    this.shadowRoot.prepend(...nodes);
+    if (focused) this.shadowRoot.querySelector("ha-card")?.focus({ preventScroll: true });
   }
 
   _renderHead(today, status, pills) {
@@ -573,19 +736,189 @@ class PrayerTimesDisplayCard extends HTMLElement {
       .filter(Boolean)
       .join(" · ");
     const head = el("div", "head", el("div", "title", this._config.title, subtitle && el("span", "sub", subtitle)));
-    if (pills) {
-      const group = el("div", "pills");
-      if (status.current) {
-        group.append(el("div", "pill now", el("i", "dot"), `${prayer(status.current.key)[1]} now`));
-      }
-      if (status.next) {
-        group.append(
-          el("div", "pill next", icon("mdi:clock-outline"), `${prayer(status.next.key)[1]} in ${duration(status.next.at - this._now)}`)
-        );
-      }
-      head.append(group);
-    }
+    if (pills) head.append(this._pills(status));
     return head;
+  }
+
+  // "Dhuhr now" and "Asr in 1h 47m" badges
+  _pills(status) {
+    const group = el("div", "pills");
+    if (status.current) {
+      group.append(el("div", "pill now", el("i", "dot"), `${prayer(status.current.key)[1]} now`));
+    }
+    if (status.next) {
+      group.append(
+        el("div", "pill next", icon("mdi:clock-outline"), `${prayer(status.next.key)[1]} in ${duration(status.next.at - this._now)}`)
+      );
+    }
+    return group;
+  }
+
+  // ----- tap action and schedule popup -----
+
+  _inPopup(ev) {
+    return Boolean(this._dialog) && ev.composedPath().includes(this._dialog);
+  }
+
+  _tap(keyboard) {
+    if (!this._config || !this._hass || !this._entities.schedule) return;
+    const tapAction = this._config.tap_action;
+    if (tapAction.action === "none") return;
+    if (tapAction.action === "schedule") {
+      this._openPopup(keyboard);
+      return;
+    }
+    // Any other action is handled by Home Assistant, as for its own cards
+    this.dispatchEvent(
+      new CustomEvent("hass-action", {
+        bubbles: true,
+        composed: true,
+        detail: { config: { entity: this._entities.schedule, tap_action: tapAction }, action: "tap" },
+      })
+    );
+  }
+
+  _openPopup(keyboard) {
+    if (!this._dialog) {
+      this._dialog = el("dialog", "popup");
+      this._dialog.setAttribute("aria-labelledby", "popup-title");
+      // A click on the dialog itself, not its content, is on the backdrop
+      this._dialog.addEventListener("click", (ev) => {
+        if (ev.target === this._dialog) this._dialog.close();
+      });
+      this._dialog.addEventListener("close", () => this._popupClosed());
+      this.shadowRoot.append(this._dialog);
+    }
+    if (this._dialog.open) return;
+    this._returnFocus = keyboard;
+    this._dialog.replaceChildren();
+    this._dialog.showModal();
+    this._renderPopup();
+    // The dialog was empty when it opened, so focus went to the dialog itself
+    if (keyboard) this._dialog.querySelector(".popup-close")?.focus();
+    window.addEventListener("resize", this._onResize);
+    window.addEventListener("popstate", this._onPopState);
+    history.pushState({ ...history.state, prayerTimesPopup: true }, "");
+    this._historyEntry = true;
+  }
+
+  _popupClosed() {
+    window.removeEventListener("resize", this._onResize);
+    window.removeEventListener("popstate", this._onPopState);
+    cancelAnimationFrame(this._popupFrame);
+    this._dialog.replaceChildren();
+    // Closed with the close button, Esc or the backdrop: drop the history entry
+    if (this._historyEntry) {
+      this._historyEntry = false;
+      if (history.state?.prayerTimesPopup) history.back();
+    }
+    if (this._returnFocus && this.isConnected) this.shadowRoot.querySelector("ha-card")?.focus({ preventScroll: true });
+  }
+
+  // Draws the popup's content; called again on every card update while it's open
+  _renderPopup() {
+    const dialog = this._dialog;
+    if (!dialog?.open || !this._config || !this._hass || !this._entities.schedule) return;
+
+    const all = this._allDays();
+    const days = Array.from({ length: this._config.popup_days }, (_, i) => all[i] || {});
+    const status = prayerStatus(all, this._now);
+    const first = days[0];
+    const last = days[days.length - 1];
+
+    const range = [
+      first.date && last.date
+        ? `${this._date(first.date, { day: "numeric", month: "short" })} – ${this._date(last.date, { dateStyle: "medium" })}`
+        : null,
+      first.hijri_date && last.hijri_date ? this._hijriRange(first.hijri_date, last.hijri_date) : null,
+    ];
+    const title = el("div", "title",
+      `${this._config.title || DEFAULT_TITLE} · next ${days.length} days`,
+      ...range.map((line) => line && el("span", "sub", line)),
+      this._pills(status));
+    title.id = "popup-title";
+
+    const close = el("button", "popup-close", icon("mdi:close"));
+    close.type = "button";
+    close.setAttribute("aria-label", "Close");
+    close.addEventListener("click", () => dialog.close());
+
+    // Keep the scroll position when the content is redrawn
+    const previous = dialog.querySelector(".popup-scroll");
+    const scroll = el("div", "popup-scroll");
+    const body = el("div", "body align-left");
+    scroll.append(body);
+    const hadFocus = dialog.querySelector(".popup-close") === this.shadowRoot.activeElement;
+    dialog.replaceChildren(el("div", "popup-wrap", el("div", "popup-head", title, close), scroll));
+    if (hadFocus) close.focus({ preventScroll: true });
+
+    // Phones get the compact grid; so do wider screens when the design doesn't fit
+    const vertical = this._config.rendering_style === "vertical";
+    const timeline = this._config.popup_design === "timeline";
+    dialog.classList.toggle("fill", timeline);
+    let compact = window.innerWidth < COMPACT_WIDTH;
+    if (!compact) {
+      const width = scroll.clientWidth;
+      if (timeline) {
+        const drawn = this._renderTimeline(days, status, vertical, width, true);
+        body.append(drawn);
+        compact = Number(drawn.querySelector("svg").getAttribute("width")) > width - 32;
+      } else {
+        body.append(this._renderTable(days, status, vertical));
+        compact = body.scrollWidth > body.clientWidth + 1;
+      }
+    }
+    if (compact) {
+      dialog.classList.remove("fill");
+      body.replaceChildren(this._renderWeek(days, status));
+    }
+    if (previous) {
+      scroll.scrollTop = previous.scrollTop;
+      scroll.scrollLeft = previous.scrollLeft;
+    }
+  }
+
+  // "13 – 19 Jumādá al-ūlá 1448"-style ranges are hard to build for every
+  // month name, so only the repeated year is dropped from the first date
+  _hijriRange(from, to) {
+    const year = /\s(\S+)$/.exec(from)?.[1];
+    return year && to.endsWith(` ${year}`) ? `${from.slice(0, -year.length - 1)} – ${to}` : `${from} – ${to}`;
+  }
+
+  // Compact grid for phones: a row per day, a column per time, without am/pm
+  _renderWeek(days, status) {
+    const table = el("table", "week");
+    const head = el("tr", null, el("th"));
+    for (const [, , short, iconName] of PRAYERS) head.append(el("th", null, el("div", "colicon", icon(iconName)), short));
+    table.append(el("thead", null, head));
+
+    const rows = el("tbody");
+    let dropped = false;
+    days.forEach((day, i) => {
+      const label = i === 0 ? "Today" : this._date(day.date, { weekday: "short" }) ?? EMPTY;
+      const row = el("tr", i === 0 ? "today" : null,
+        el("th", null, label, el("span", "sub", this._date(day.date, { day: "numeric", month: "short" }) ?? "")));
+      for (const [key] of PRAYERS) {
+        const state = this._state(status, i, key, day);
+        const [text, short] = this._weekTime(day[key], key);
+        dropped ||= short;
+        row.append(el("td", `s-${state}${MINOR.includes(key) ? " minor" : ""}`, el("span", null, text)));
+      }
+      rows.append(row);
+    });
+    table.append(rows);
+    return el("div", null, table,
+      dropped ? el("div", "week-note", "Times without am/pm: Suhoor to Sunrise are am, Dhuhr to Isha are pm.") : null);
+  }
+
+  // A time without its am/pm when it's in the usual half of the day for that
+  // prayer (Suhoor, Fajr and Sunrise am; the rest pm). Returns [text, dropped].
+  _weekTime(value, key) {
+    const text = this._time(value);
+    const period = /\s*([ap])\.?\s?m\.?$/i.exec(text);
+    if (!period) return [text, false];
+    const usual = ["imsak", "fajr", "sunrise"].includes(key) ? "a" : "p";
+    return period[1].toLowerCase() === usual ? [text.slice(0, period.index), true] : [text.replace(/\s+/, ""), false];
   }
 
   // ----- design: table -----
@@ -870,9 +1203,13 @@ class PrayerTimesDisplayCard extends HTMLElement {
     }).format(date);
   }
 
-  _renderTimeline(days, status, vertical) {
+  // Drawn to fit `width` (the space including the 16px padding each side);
+  // `stretch` spreads the vertical timeline's day columns across it
+  _renderTimeline(days, status, vertical, width, stretch) {
     const [start, end] = this._timelineRange(days);
-    const svg = vertical ? this._timelineVertical(days, status, start, end) : this._timelineHorizontal(days, status, start, end);
+    const svg = vertical
+      ? this._timelineVertical(days, status, start, end, width, stretch)
+      : this._timelineHorizontal(days, status, start, end, width);
     const n = days.length;
     const legend = el("div", "legend",
       el("span", null, el("i", "lg-daylight"), "Daylight"),
@@ -892,12 +1229,11 @@ class PrayerTimesDisplayCard extends HTMLElement {
     return svgEl("svg", { width, height, viewBox: `0 0 ${width} ${height}` });
   }
 
-  _timelineHorizontal(days, status, start, end) {
+  _timelineHorizontal(days, status, start, end, fitWidth) {
     const n = days.length;
     const left = 120;
     // Fit the track to the card (minus padding), keeping it readable
-    this._drawnWidth = this.clientWidth;
-    const width = Math.max(420, (this.clientWidth || 900) - 32 - left - 20);
+    const width = Math.max(420, (fitWidth || 900) - 32 - left - 20);
     const rowHeight = 74;
     const top = 46;
     const x = (m) => left + ((m - start) / (end - start)) * width;
@@ -945,17 +1281,14 @@ class PrayerTimesDisplayCard extends HTMLElement {
     return svg;
   }
 
-  _timelineVertical(days, status, start, end) {
+  _timelineVertical(days, status, start, end, fitWidth, stretch) {
     const n = days.length;
     const height = 560;
     const top = 70;
     const left = 56;
     // At full width the day columns spread across the card
     let colWidth = n >= 5 ? 150 : 200;
-    if (this._config.alignment === "stretch") {
-      this._drawnWidth = this.clientWidth;
-      colWidth = Math.max(colWidth, ((this.clientWidth || 0) - 32 - left - 10) / n);
-    }
+    if (stretch) colWidth = Math.max(colWidth, ((fitWidth || 0) - 32 - left - 10) / n);
     const y = (m) => top + ((m - start) / (end - start)) * height;
     const svg = this._svg(left + colWidth * n + 10, top + height + 24);
 
@@ -1031,10 +1364,13 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
     }
 
     const design = (this._config.design ?? "table").toLowerCase();
-    // "Days to show" is only offered for designs that use it
-    if (this._schemaDesign !== design) {
-      this._form.schema = this._schema(design);
-      this._schemaDesign = design;
+    const tap = tapMode(this._config.tap_action);
+    // Fields are only offered when they apply: "Days to show" for designs that
+    // use it, and the popup or action settings for the chosen tap behaviour
+    const schemaKey = `${design}|${tap}`;
+    if (this._schemaKey !== schemaKey) {
+      this._form.schema = this._schema(design, tap);
+      this._schemaKey = schemaKey;
     }
 
     // Update form data without rebuilding the DOM (keeps the dialog open)
@@ -1045,10 +1381,14 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
       design,
       rendering_style: (this._config.rendering_style ?? "vertical").toLowerCase(),
       alignment: (this._config.alignment ?? "left").toLowerCase(),
+      tap,
+      popup_design: (this._config.popup_design ?? "table").toLowerCase(),
+      popup_days: this._config.popup_days ?? MAX_DAYS,
+      tap_action: tap === "action" ? this._config.tap_action : undefined,
     };
   }
 
-  _schema(design) {
+  _schema(design, tap) {
     const select = (options) => ({ select: { options, mode: "dropdown" } });
     return [
       { name: "device_id", selector: { device: { integration: DOMAIN } } },
@@ -1082,6 +1422,27 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
           { value: "stretch", label: "Full width" },
         ]),
       },
+      {
+        name: "tap",
+        selector: select([
+          { value: "schedule", label: "Show the schedule for the coming days" },
+          { value: "action", label: "Home Assistant action" },
+          { value: "none", label: "Do nothing" },
+        ]),
+      },
+      tap === "schedule"
+        ? {
+            name: "popup_design",
+            selector: select([
+              { value: "table", label: "Table" },
+              { value: "timeline", label: "Timeline" },
+            ]),
+          }
+        : null,
+      tap === "schedule"
+        ? { name: "popup_days", selector: { number: { min: 2, max: MAX_DAYS, step: 1, mode: "slider" } } }
+        : null,
+      tap === "action" ? { name: "tap_action", selector: { ui_action: { default_action: "more-info" } } } : null,
     ].filter(Boolean);
   }
 
@@ -1096,18 +1457,35 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
       design: "Design",
       rendering_style: "Rendering style",
       alignment: "Alignment",
+      tap: "When tapped",
+      popup_design: "Popup design",
+      popup_days: "Days in the popup",
+      tap_action: "Tap action",
     };
     const helpers = {
       days: "1 shows today only, 2 adds tomorrow, up to 7 days.",
       design: "Table: times in a grid. Next prayer focus: a large countdown to the next prayer. Timeline: each day drawn as a line through the day. Now and next, Countdown ring: only the current and next prayer.",
       alignment: "Where the content sits when the card is wider than it. Full width stretches it to fill the card.",
+      tap: "The schedule opens in a popup over the dashboard.",
+      popup_design: "Used on wider screens. Phones, and screens too narrow for it, show a compact grid.",
     };
     this._form.computeLabel = (schema) => labels[schema.name] ?? schema.name;
     this._form.computeHelper = (schema) => helpers[schema.name];
 
     this._form.addEventListener("value-changed", (ev) => {
       ev.stopPropagation();
-      this._config = { ...this._config, ...ev.detail.value };
+      const { tap, ...value } = ev.detail.value;
+      const config = { ...this._config, ...value };
+      // The popup is the default, so it isn't written to the card's YAML
+      if (tap === "schedule") {
+        delete config.tap_action;
+      } else {
+        delete config.popup_design;
+        delete config.popup_days;
+        if (tap === "none") config.tap_action = { action: "none" };
+        else if (tapMode(config.tap_action) !== "action") config.tap_action = { action: "more-info" };
+      }
+      this._config = config;
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: this._config },
@@ -1131,7 +1509,7 @@ if (!customElements.get(CARD_TYPE)) {
     type: CARD_TYPE,
     name: "Prayer Times Display",
     description:
-      "Up to a week of prayer times as a table, a next-prayer countdown or a timeline, or just the current and next prayer.",
+      "Up to a week of prayer times as a table, a next-prayer countdown or a timeline, or just the current and next prayer. Tap it for the coming days.",
     preview: true,
     documentationURL: "https://github.com/rifazrifky/home-assistant-prayer-times-display",
   });

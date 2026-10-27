@@ -3,7 +3,7 @@
 // Reads the location's "Weekly schedule" sensor, so no entity IDs are configured:
 // - device_id: which location to show (defaults to the first one set up)
 // - days: how many days to show, 1 (today only) to 7
-// - design: table | focus | timeline
+// - design: table | focus | timeline | now_next | ring
 // - rendering_style: vertical | horizontal
 // - alignment: left | center | right | stretch (content fills the card's width)
 
@@ -13,7 +13,9 @@ const EDITOR_TYPE = "prayer-times-display-card-editor";
 const DEFAULT_TITLE = "Prayer Times";
 const MAX_DAYS = 7;
 const EMPTY = "—";
-const DESIGNS = ["table", "focus", "timeline"];
+const DESIGNS = ["table", "focus", "timeline", "now_next", "ring"];
+// Designs that show only the current and next prayer: "Days to show" doesn't apply
+const NOW_NEXT_DESIGNS = ["now_next", "ring"];
 // How often the current/next prayer and countdown are re-checked
 const TICK_MS = 30000;
 
@@ -186,6 +188,49 @@ const STYLES = `
   .chiprow.small .chip { padding: 4px 6px; background: transparent; }
   .chiprow.small .time { font-weight: 400; font-size: 13px; }
   .chiprow.small .rowlabel { font-weight: 500; color: var(--ptd-muted); }
+
+  /* now and next */
+  .nownext { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); min-width: 260px; }
+  .nownext.horizontal { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 420px; }
+  .panel { border-radius: 12px; padding: 12px 16px; }
+  .now-panel {
+    background: var(--ptd-now-soft);
+    border: 1px solid color-mix(in srgb, var(--ptd-now) 30%, transparent);
+    color: var(--ptd-now);
+  }
+  .now-panel ha-icon { color: var(--ptd-now); }
+  .now-panel.empty { background: transparent; border: 1px dashed var(--ptd-line); color: var(--ptd-muted); }
+  .next-panel {
+    background: var(--ptd-next-soft);
+    border: 1px solid color-mix(in srgb, var(--ptd-next) 30%, transparent);
+  }
+  .next-panel .panel-label, .next-panel ha-icon { color: var(--ptd-next); }
+  .panel-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .panel-main { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .panel-main ha-icon { --mdc-icon-size: 28px; }
+  .panel-name { font-size: 24px; font-weight: 700; }
+  .horizontal .panel-name { font-size: 22px; }
+  .panel-time { font-size: 24px; font-weight: 300; margin-left: auto; padding-left: 16px; font-variant-numeric: tabular-nums; }
+  .panel-sub { font-size: 13px; margin: 2px 0 0 38px; color: var(--ptd-muted); }
+  .now-panel .panel-sub { color: inherit; }
+  .now-panel.empty .panel-sub { margin-left: 0; }
+  .next-panel .bar { margin-top: 10px; }
+
+  /* countdown ring */
+  .hero.ring.vertical { text-align: center; }
+  .hero.ring.vertical .hero-now { justify-content: center; }
+  .hero.ring.horizontal { display: flex; align-items: center; gap: 18px; }
+  .hero.ring svg { flex: none; margin: 0 auto; }
+  .ring-side { flex: 1; min-width: 0; }
+  .ring-track { fill: none; stroke: var(--ptd-line); stroke-width: 9; }
+  .ring-arc { fill: none; stroke: var(--ptd-next); stroke-width: 9; stroke-linecap: round; }
+  svg .ring-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; fill: var(--ptd-next); }
+  svg .ring-name { font-size: 22px; font-weight: 700; }
+  svg .ring-time { font-size: 13px; fill: var(--ptd-muted); }
+  svg .ring-big { font-size: 24px; font-weight: 700; }
+  .ring-count { font-size: 15px; font-weight: 600; margin-top: 4px; }
+  .hero-now.empty, .hero-now.empty b { color: var(--ptd-muted); }
+  .hero-now.empty .dot { background: var(--ptd-muted); box-shadow: none; }
 
   /* timeline */
   .timeline { max-width: 100%; }
@@ -388,6 +433,8 @@ class PrayerTimesDisplayCard extends HTMLElement {
   getCardSize() {
     if (!this._config) return 6;
     const { design, rendering_style: style, days } = this._config;
+    if (design === "now_next") return style === "vertical" ? 5 : 3;
+    if (design === "ring") return style === "vertical" ? 6 : 4;
     if (design === "focus") return style === "vertical" ? (days > 1 ? 13 : 9) : 4 + days;
     if (style === "horizontal") return 2 + days;
     return design === "timeline" ? 8 : 7;
@@ -507,11 +554,17 @@ class PrayerTimesDisplayCard extends HTMLElement {
       body.append(this._renderFocus(days, status, vertical));
     } else if (this._config.design === "timeline") {
       body.append(this._renderTimeline(days, status, vertical));
+    } else if (this._config.design === "now_next") {
+      body.append(this._renderNowNext(status, vertical));
+    } else if (this._config.design === "ring") {
+      body.append(this._renderRing(status, vertical));
     } else {
       body.append(this._renderTable(days, status, vertical));
     }
 
-    card.append(this._renderHead(days[0], status, this._config.design !== "focus"), body);
+    // Designs that already show now and next don't repeat them as header badges
+    const pills = !["focus", ...NOW_NEXT_DESIGNS].includes(this._config.design);
+    card.append(this._renderHead(days[0], status, pills), body);
     this.shadowRoot.replaceChildren(style, card);
   }
 
@@ -576,15 +629,38 @@ class PrayerTimesDisplayCard extends HTMLElement {
 
   // ----- design: focus -----
 
+  // How far through the time from the last prayer (or sunrise) to the next
+  // one we are, 0–100; null when either end is unknown
+  _progress(status) {
+    if (!status.since || !status.next) return null;
+    const total = status.next.at - status.since.at;
+    return Math.min(100, Math.max(0, ((this._now - status.since.at) / total) * 100));
+  }
+
+  // Why no prayer is current: Fajr's time ends at sunrise, and before Fajr
+  // there's nothing from today yet
+  _noCurrentNote(status) {
+    if (status.since?.key === "sunrise") return `Fajr ended at sunrise, ${this._time(status.since.at)}`;
+    return "Before Fajr";
+  }
+
+  _nextLabel(status) {
+    return status.next && status.next.index > 0 ? "Next prayer · tomorrow" : "Next prayer";
+  }
+
+  // "Now: Dhuhr · since 1:02 pm (1h 5m ago)", or a muted note when no prayer is current
+  _nowLine(status) {
+    if (!status.current) {
+      return el("div", "hero-now empty", el("i", "dot"), el("b", null, "No prayer time"),
+        el("span", null, ` · ${this._noCurrentNote(status)}`));
+    }
+    return el("div", "hero-now", el("i", "dot"), "Now: ", el("b", null, prayer(status.current.key)[1]),
+      el("span", null, ` · since ${this._time(status.current.at)} (${duration(this._now - status.current.at)} ago)`));
+  }
+
   _renderHero(status) {
     const hero = el("div", "hero");
-    if (status.current) {
-      const started = prayer(status.current.key)[1];
-      hero.append(
-        el("div", "hero-now", el("i", "dot"), "Now: ", el("b", null, started),
-          el("span", null, ` · since ${this._time(status.current.at)} (${duration(this._now - status.current.at)} ago)`))
-      );
-    }
+    if (status.current) hero.append(this._nowLine(status));
     hero.append(el("div", "hero-label", "Next prayer"));
     if (!status.next) {
       hero.append(el("div", "hero-main", el("span", "hero-name", EMPTY)));
@@ -596,9 +672,8 @@ class PrayerTimesDisplayCard extends HTMLElement {
       el("div", "hero-count", `in ${duration(status.next.at - this._now)}`)
     );
     if (status.since) {
-      const total = status.next.at - status.since.at;
       const fill = el("div", "fill");
-      fill.style.width = `${Math.min(100, Math.max(0, ((this._now - status.since.at) / total) * 100))}%`;
+      fill.style.width = `${this._progress(status)}%`;
       hero.append(
         el("div", "bar", fill),
         el("div", "bar-labels",
@@ -655,6 +730,117 @@ class PrayerTimesDisplayCard extends HTMLElement {
     });
     wrap.append(rows);
     return wrap;
+  }
+
+  // ----- design: now and next -----
+
+  _renderNowNext(status, vertical) {
+    const wrap = el("div", `nownext ${vertical ? "vertical" : "horizontal"}`);
+
+    const now = el("div", "panel now-panel", el("div", "panel-label", "Now"));
+    if (status.current) {
+      const [, name, , iconName] = prayer(status.current.key);
+      const started = this._time(status.current.at);
+      const ago = `${duration(this._now - status.current.at)} ago`;
+      now.append(
+        el("div", "panel-main", icon(iconName), el("span", "panel-name", name),
+          vertical ? el("span", "panel-time", started) : null),
+        el("div", "panel-sub", vertical ? ago : `${started} · ${ago}`)
+      );
+    } else {
+      now.classList.add("empty");
+      now.append(
+        el("div", "panel-main", el("span", "panel-name", "No prayer time")),
+        el("div", "panel-sub", this._noCurrentNote(status))
+      );
+    }
+
+    const next = el("div", "panel next-panel", el("div", "panel-label", this._nextLabel(status)));
+    if (!status.next) {
+      next.append(el("div", "panel-main", el("span", "panel-name", EMPTY)));
+    } else {
+      const [, name, , iconName] = prayer(status.next.key);
+      const at = this._time(status.next.at);
+      const until = `in ${duration(status.next.at - this._now)}`;
+      next.append(
+        el("div", "panel-main", icon(iconName), el("span", "panel-name", name),
+          vertical ? el("span", "panel-time", at) : null),
+        el("div", "panel-sub", vertical ? until : `${at} · ${until}`)
+      );
+      const progress = this._progress(status);
+      if (progress !== null) {
+        const fill = el("div", "fill");
+        fill.style.width = `${progress}%`;
+        next.append(el("div", "bar", fill));
+        if (vertical) {
+          next.append(
+            el("div", "bar-labels",
+              el("span", null, `${prayer(status.since.key)[1]} ${this._time(status.since.at)}`),
+              el("span", null, `${name} ${at}`))
+          );
+        }
+      }
+    }
+
+    wrap.append(now, next);
+    return wrap;
+  }
+
+  // ----- design: countdown ring -----
+
+  // A ring whose arc shows how far through the wait for the next prayer we
+  // are, with lines of text centred inside: [text, class, y] in a 140×140 box
+  _ringSvg(progress, size, lines) {
+    const radius = 58;
+    const circumference = 2 * Math.PI * radius;
+    const svg = svgEl("svg", { width: size, height: size, viewBox: "0 0 140 140" });
+    svg.append(
+      svgEl("circle", { cx: 70, cy: 70, r: radius, class: "ring-track" }),
+      svgEl("circle", {
+        cx: 70, cy: 70, r: radius, class: "ring-arc",
+        "stroke-dasharray": `${(circumference * (progress ?? 0)) / 100} ${circumference}`,
+        transform: "rotate(-90 70 70)",
+      })
+    );
+    for (const [text, cls, y] of lines) {
+      svg.append(svgEl("text", { x: 70, y, class: cls, "text-anchor": "middle" }, text));
+    }
+    return svg;
+  }
+
+  _renderRing(status, vertical) {
+    const hero = el("div", `hero ring ${vertical ? "vertical" : "horizontal"}`);
+    const progress = this._progress(status);
+    const next = status.next && prayer(status.next.key);
+    const until = status.next ? duration(status.next.at - this._now) : EMPTY;
+
+    if (vertical) {
+      hero.append(
+        this._nowLine(status),
+        this._ringSvg(progress, 160, [
+          [this._nextLabel(status).toUpperCase(), "ring-label", 50],
+          [next ? next[1] : EMPTY, "ring-name", 78],
+          [status.next ? this._time(status.next.at) : "", "ring-time", 98],
+        ]),
+        el("div", "ring-count", status.next ? `in ${until}` : EMPTY)
+      );
+      return hero;
+    }
+
+    const side = el("div", "ring-side", this._nowLine(status), el("div", "hero-label", this._nextLabel(status)));
+    side.append(
+      next
+        ? el("div", "hero-main", icon(next[3]), el("span", "hero-name", next[1]), el("span", "hero-time", this._time(status.next.at)))
+        : el("div", "hero-main", el("span", "hero-name", EMPTY))
+    );
+    hero.append(
+      this._ringSvg(progress, 112, [
+        [until, "ring-big", 76],
+        [status.next ? "to go" : "", "ring-time", 98],
+      ]),
+      side
+    );
+    return hero;
   }
 
   // ----- design: timeline -----
@@ -844,32 +1030,40 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
       this._build();
     }
 
+    const design = (this._config.design ?? "table").toLowerCase();
+    // "Days to show" is only offered for designs that use it
+    if (this._schemaDesign !== design) {
+      this._form.schema = this._schema(design);
+      this._schemaDesign = design;
+    }
+
     // Update form data without rebuilding the DOM (keeps the dialog open)
     this._form.data = {
       device_id: this._config.device_id,
       title: this._config.title ?? DEFAULT_TITLE,
       days: this._config.days ?? 1,
-      design: (this._config.design ?? "table").toLowerCase(),
+      design,
       rendering_style: (this._config.rendering_style ?? "vertical").toLowerCase(),
       alignment: (this._config.alignment ?? "left").toLowerCase(),
     };
   }
 
-  _build() {
-    this._form = document.createElement("ha-form");
-    this._form.hass = this._hass;
-
+  _schema(design) {
     const select = (options) => ({ select: { options, mode: "dropdown" } });
-    this._form.schema = [
+    return [
       { name: "device_id", selector: { device: { integration: DOMAIN } } },
       { name: "title", selector: { text: {} } },
-      { name: "days", selector: { number: { min: 1, max: MAX_DAYS, step: 1, mode: "slider" } } },
+      NOW_NEXT_DESIGNS.includes(design)
+        ? null
+        : { name: "days", selector: { number: { min: 1, max: MAX_DAYS, step: 1, mode: "slider" } } },
       {
         name: "design",
         selector: select([
           { value: "table", label: "Table" },
           { value: "focus", label: "Next prayer focus" },
           { value: "timeline", label: "Timeline" },
+          { value: "now_next", label: "Now and next" },
+          { value: "ring", label: "Countdown ring" },
         ]),
       },
       {
@@ -888,7 +1082,12 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
           { value: "stretch", label: "Full width" },
         ]),
       },
-    ];
+    ].filter(Boolean);
+  }
+
+  _build() {
+    this._form = document.createElement("ha-form");
+    this._form.hass = this._hass;
 
     const labels = {
       device_id: "Location",
@@ -900,7 +1099,7 @@ class PrayerTimesDisplayCardEditor extends HTMLElement {
     };
     const helpers = {
       days: "1 shows today only, 2 adds tomorrow, up to 7 days.",
-      design: "Table: times in a grid. Next prayer focus: a large countdown to the next prayer. Timeline: each day drawn as a line through the day.",
+      design: "Table: times in a grid. Next prayer focus: a large countdown to the next prayer. Timeline: each day drawn as a line through the day. Now and next, Countdown ring: only the current and next prayer.",
       alignment: "Where the content sits when the card is wider than it. Full width stretches it to fill the card.",
     };
     this._form.computeLabel = (schema) => labels[schema.name] ?? schema.name;
@@ -932,7 +1131,7 @@ if (!customElements.get(CARD_TYPE)) {
     type: CARD_TYPE,
     name: "Prayer Times Display",
     description:
-      "Up to a week of prayer times as a table, a next-prayer countdown or a timeline, with the current and next prayer highlighted.",
+      "Up to a week of prayer times as a table, a next-prayer countdown or a timeline, or just the current and next prayer.",
     preview: true,
     documentationURL: "https://github.com/rifazrifky/home-assistant-prayer-times-display",
   });

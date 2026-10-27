@@ -39,10 +39,12 @@ Daily Islamic prayer times for any location in Home Assistant: sensors you can a
 - **Automation-ready sensors.** Imsak (end of suhoor), Fajr, Sunrise, Dhuhr, Asr, Maghrib and Isha for today and tomorrow, as timestamp sensors you can trigger on directly, with or without an offset.
 - **Gregorian and Hijri dates** for today and tomorrow.
 - **A rolling 7-day schedule**, refreshed automatically each night.
-- **A dashboard card that loads by itself** (no resource to add), showing 1 to 7 days in three designs, each vertical or horizontal:
-  - **Table**: times in a grid with an icon per prayer
-  - **Next prayer focus**: a large countdown to the next prayer
-  - **Timeline**: each day drawn as a line through the day
+- **A dashboard card that loads by itself** (no resource to add), in five designs, each vertical or horizontal:
+  - **Table**: 1 to 7 days of times in a grid with an icon per prayer
+  - **Next prayer focus**: a large countdown to the next prayer, plus the day's times
+  - **Timeline**: 1 to 7 days, each drawn as a line through the day
+  - **Now and next**: just the current and next prayer, side by side or stacked
+  - **Countdown ring**: a ring counting down to the next prayer
 - **Current and next prayer highlighted**, updating live, with passed prayers dimmed.
 - **23 calculation methods** and Standard or Hanafi Asr, changeable at any time.
 - **Follows your Home Assistant settings**: 12/24-hour time, language for dates, time zone and theme colours.
@@ -197,14 +199,14 @@ alignment: left
 | --- | --- | --- |
 | `device_id` | first location | Which location to show if you have several. Easiest to pick in the visual editor (**Location**) |
 | `title` | `Prayer Times` | Shown at the top of the card |
-| `days` | `1` | How many days to show: `1` (today only) to `7`. `2` adds tomorrow; later days are labelled with the weekday |
-| `design` | `table` | `table`, `focus` or `timeline`; see below |
+| `days` | `1` | How many days to show: `1` (today only) to `7`. `2` adds tomorrow; later days are labelled with the weekday. Not used by `now_next` and `ring`, which always show the current and next prayer |
+| `design` | `table` | `table`, `focus`, `timeline`, `now_next` or `ring`; see below |
 | `rendering_style` | `vertical` | `vertical` or `horizontal`; see below |
 | `alignment` | `left` | Where the content sits when the card is wider than it: `left`, `center` or `right`, or `stretch` (**Full width** in the visual editor) to make it fill the card. With `stretch`, table columns, the focus panel and list, and the vertical timeline's day columns spread across the whole card |
 
 ### Current and next prayer
 
-Every design highlights the **current prayer** in green with a **Now** tag and the **next prayer** in blue with a **Next** tag. Prayers that have already passed today are dimmed.
+Every design highlights the **current prayer** in green and the **next prayer** in blue. The table, focus and timeline designs mark them with **Now** and **Next** tags and dim prayers that have already passed today.
 
 - The current prayer is the last of Fajr, Dhuhr, Asr, Maghrib and Isha to have started.
 - Fajr's time ends at sunrise, so between sunrise and Dhuhr only the next prayer is marked.
@@ -262,11 +264,43 @@ days: 2
 rendering_style: horizontal
 ```
 
+### Design: now and next
+
+Only the current and next prayer, in the focus design's style: a green **Now** panel with when it started, and a blue **Next prayer** panel with its time, a countdown and a progress bar.
+
+| Vertical: panels stacked | Horizontal: panels side by side |
+| --- | --- |
+| <img src="docs/images/card-now-next-vertical.png" alt="Now and next design, vertical" width="300"> | <img src="docs/images/card-now-next-horizontal.png" alt="Now and next design, horizontal" width="520"> |
+
+```yaml
+type: custom:prayer-times-display-card
+design: now_next
+rendering_style: horizontal
+alignment: stretch
+```
+
+### Design: countdown ring
+
+The focus panel with a ring counting down to the next prayer. The arc fills as the time since the previous prayer (or sunrise) passes, and the line at the top shows what's current.
+
+| Vertical: ring in the middle | Horizontal: ring beside the next prayer |
+| --- | --- |
+| <img src="docs/images/card-ring-vertical.png" alt="Countdown ring design, vertical" width="300"> | <img src="docs/images/card-ring-horizontal.png" alt="Countdown ring design, horizontal" width="520"> |
+
+```yaml
+type: custom:prayer-times-display-card
+design: ring
+rendering_style: vertical
+```
+
+Both designs ignore `days`. When no prayer is current, between sunrise and Dhuhr or before Fajr, they say so ("No prayer time · Fajr ended at sunrise, 6:22 am"). After Isha, the next prayer is labelled **tomorrow**.
+
 ### Layout tips
 
 - **3 or more days** read best in the horizontal table or the horizontal timeline, shown full width.
 - In a **sections** dashboard the card starts full width; resize it from the card's **Layout** tab. The vertical 7-day timeline is about 1,100 px wide and shrinks to fit narrower spaces.
-- The **focus** and **vertical table** designs suit narrow columns and phones.
+- The **focus**, **now and next**, **countdown ring** and **vertical table** designs suit narrow columns and phones.
+- **Now and next** and **countdown ring** make good compact cards for a wall tablet or the top of a dashboard.
 - On phones and in wide columns, set `alignment: stretch` (**Full width**) so the content fills the card instead of sitting in the middle or at one side.
 
 ### Casting to a Google Nest Hub or other Cast display

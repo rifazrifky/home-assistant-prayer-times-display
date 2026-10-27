@@ -279,7 +279,15 @@ const STYLES = `
     border: 0;
     padding: 0;
     color: var(--primary-text-color);
-    background: var(--ha-dialog-surface-background, var(--mdc-theme-surface, var(--card-background-color, #fff)));
+    /* The theme's surface colour over a translucent, blurred tint of the
+       page background, so the popup stays readable with themes whose cards
+       are transparent */
+    --ptd-surface: var(--ha-dialog-surface-background, var(--mdc-theme-surface, var(--card-background-color, #fff)));
+    background:
+      linear-gradient(var(--ptd-surface), var(--ptd-surface)),
+      color-mix(in srgb, var(--primary-background-color, #fafafa) 80%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(24px) saturate(140%);
     border-radius: var(--ha-dialog-border-radius, 28px);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     width: fit-content;
@@ -296,7 +304,11 @@ const STYLES = `
   }
   dialog.popup:focus { outline: none; }
   dialog.popup.fill { width: min(1240px, calc(100vw - 32px)); }
-  dialog.popup::backdrop { background: var(--mdc-dialog-scrim-color, rgba(0, 0, 0, 0.5)); }
+  dialog.popup::backdrop {
+    background: var(--mdc-dialog-scrim-color, rgba(0, 0, 0, 0.5));
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
   .popup-wrap { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
   .popup-head {
     display: flex;

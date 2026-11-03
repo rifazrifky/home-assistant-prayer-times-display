@@ -54,7 +54,7 @@ async def async_fetch_day(
     longitude: float,
     method: str,
     school: str,
-    time_zone: str,
+    tz: ZoneInfo,
 ) -> DayTimings:
     """Fetch and parse the prayer times for one day."""
     data = await _async_get(
@@ -65,10 +65,10 @@ async def async_fetch_day(
             "longitude": str(longitude),
             "method": method,
             "school": school,
-            "timezonestring": time_zone,
+            "timezonestring": tz.key,
         },
     )
-    return parse_day(day, data, ZoneInfo(time_zone))
+    return parse_day(day, data, tz)
 
 
 async def async_fetch_time_zone(

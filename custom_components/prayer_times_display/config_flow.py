@@ -274,6 +274,10 @@ class PrayerTimesConfigFlow(ConfigFlow, domain=DOMAIN):
         if values[CONF_TIME_ZONE] not in self._time_zones:
             errors[CONF_TIME_ZONE] = "invalid_time_zone"
             return None
+        tz = await dt_util.async_get_time_zone(values[CONF_TIME_ZONE])
+        if tz is None:
+            errors[CONF_TIME_ZONE] = "invalid_time_zone"
+            return None
         try:
             await async_fetch_day(
                 async_get_clientsession(self.hass),
@@ -282,7 +286,7 @@ class PrayerTimesConfigFlow(ConfigFlow, domain=DOMAIN):
                 longitude=longitude,
                 method=values[CONF_METHOD],
                 school=values[CONF_SCHOOL],
-                time_zone=values[CONF_TIME_ZONE],
+                tz=tz,
             )
         except PrayerTimesApiError as err:
             LOGGER.debug("Validation fetch failed: %s", err)

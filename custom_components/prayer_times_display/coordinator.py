@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -52,6 +53,7 @@ class PrayerTimesCoordinator(DataUpdateCoordinator[PrayerTimesData]):
     """Keeps a rolling week of prayer times for a configured location."""
 
     config_entry: PrayerTimesConfigEntry
+    tz: ZoneInfo
 
     def __init__(self, hass: HomeAssistant, entry: PrayerTimesConfigEntry) -> None:
         super().__init__(
@@ -64,8 +66,16 @@ class PrayerTimesCoordinator(DataUpdateCoordinator[PrayerTimesData]):
         )
         self.time_zone = entry.data.get(CONF_TIME_ZONE) or hass.config.time_zone
 
+    async def _async_setup(self) -> None:
+        # Loading a zone reads the tz database from disk, so do it once here,
+        # in the executor, rather than on every update
+        tz = await dt_util.async_get_time_zone(self.time_zone)
+        if tz is None:
+            raise ConfigEntryError(f"Unknown time zone: {self.time_zone}")
+        self.tz = tz
+
     async def _async_update_data(self) -> PrayerTimesData:
-        today = dt_util.now(ZoneInfo(self.time_zone)).date()
+        today = dt_util.now(self.tz).date()
         wanted = [today + timedelta(days=offset) for offset in range(SCHEDULE_DAYS)]
 
         # Reuse days already fetched; normally only the newest day is missing
@@ -91,5 +101,5 @@ class PrayerTimesCoordinator(DataUpdateCoordinator[PrayerTimesData]):
             longitude=entry.data[CONF_LONGITUDE],
             method=entry.options.get(CONF_METHOD, DEFAULT_METHOD),
             school=entry.options.get(CONF_SCHOOL, DEFAULT_SCHOOL),
-            time_zone=self.time_zone,
+            tz=self.tz,
         )

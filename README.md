@@ -213,7 +213,8 @@ alignment: left
 Every design highlights the **current prayer** in green and the **next prayer** in blue. The table, focus and timeline designs mark them with **Now** and **Next** tags and dim prayers that have already passed today.
 
 - The current prayer is the last of Fajr, Dhuhr, Asr, Maghrib and Isha to have started.
-- Fajr's time ends at sunrise, so between sunrise and Dhuhr only the next prayer is marked.
+- Fajr's time ends at sunrise. While Fajr is current, Sunrise is marked **Ends** and the designs show when it comes ("Ends at sunrise 6:12 am (in 25m)"); the next prayer is still Dhuhr. Between sunrise and Dhuhr only the next prayer is marked.
+- The **previous prayer** (the one before the current prayer) is marked **Prev** and dimmed less than other passed prayers. Sunrise isn't a prayer, so during Dhuhr the previous prayer is Fajr. Before today's Fajr there is none, as yesterday isn't in the schedule.
 - After Isha, the next prayer is tomorrow's Fajr. It's highlighted in the Tomorrow column if tomorrow is shown.
 - Suhoor ends and Sunrise are shown for reference but are never marked as current or next.
 

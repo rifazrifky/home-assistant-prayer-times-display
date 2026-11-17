@@ -106,6 +106,15 @@ const STYLES = `
   }
   .tag.now { background: var(--ptd-now); }
   .tag.next { background: var(--ptd-next); }
+  .tag.previous { background: var(--ptd-muted); }
+  .tag.ends { background: transparent; color: var(--ptd-now); box-shadow: inset 0 0 0 1px var(--ptd-now); }
+  /* The previous prayer has passed, but is dimmed less than the others */
+  td.previous, .li.previous, .chip.previous, svg .previous { opacity: 0.7; }
+  .pill.previous { background: color-mix(in srgb, var(--ptd-muted) 14%, transparent); color: var(--ptd-muted); }
+  .pill.ends { box-shadow: inset 0 0 0 1px var(--ptd-now); color: var(--ptd-now); }
+  .hero-meta, .panel-meta { font-size: 12.5px; color: var(--ptd-muted); }
+  .hero-meta { margin: 2px 0 0 18px; }
+  .hero-meta b, .panel-meta b { font-weight: 600; }
 
   /* table */
   table { border-collapse: collapse; }
@@ -127,6 +136,7 @@ const STYLES = `
   .past { opacity: 0.45; }
   td.current { background: var(--ptd-now-soft); color: var(--ptd-now); font-weight: 700; border-radius: 6px; opacity: 1; }
   td.next { background: var(--ptd-next-soft); color: var(--ptd-next); font-weight: 700; border-radius: 6px; }
+  td.ends { color: var(--ptd-now); font-weight: 600; }
 
   /* focus */
   .focus { display: flex; gap: 22px; align-items: flex-start; }
@@ -139,15 +149,13 @@ const STYLES = `
     min-width: 240px;
   }
   .hero-now {
-    display: flex;
-    align-items: center;
-    gap: 6px;
     font-size: 13px;
     color: var(--ptd-now);
     padding-bottom: 10px;
     margin-bottom: 10px;
     border-bottom: 1px solid var(--ptd-line);
   }
+  .hero-now-row { display: flex; align-items: center; gap: 6px; }
   .hero-now .dot { margin-right: 4px; }
   .hero-now span { color: var(--ptd-muted); }
   .hero-label { color: var(--ptd-next); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -164,6 +172,7 @@ const STYLES = `
   .li .time { margin-left: auto; padding-left: 32px; }
   .li.current { background: var(--ptd-now-soft); color: var(--ptd-now); font-weight: 700; border-radius: 6px; }
   .li.next { background: var(--ptd-next-soft); color: var(--ptd-next); font-weight: 700; border-radius: 6px; }
+  .li.ends, .li.ends ha-icon { color: var(--ptd-now); }
   .li.current ha-icon { color: var(--ptd-now); }
   .li.next ha-icon { color: var(--ptd-next); }
   table.mini { margin-top: 6px; font-size: 13px; }
@@ -191,6 +200,8 @@ const STYLES = `
   .chip.next { background: var(--ptd-next-soft); outline: 1px solid var(--ptd-next); }
   .chip.current .name, .chip.current .time, .chip.current ha-icon { color: var(--ptd-now); }
   .chip.next .name, .chip.next .time, .chip.next ha-icon { color: var(--ptd-next); }
+  .chip.ends { outline: 1px dashed var(--ptd-now); }
+  .chip.ends .name, .chip.ends .time, .chip.ends ha-icon { color: var(--ptd-now); }
   .chiprow.small .chip { padding: 4px 6px; background: transparent; }
   .chiprow.small .time { font-weight: 400; font-size: 13px; }
   .chiprow.small .rowlabel { font-weight: 500; color: var(--ptd-muted); }
@@ -219,12 +230,14 @@ const STYLES = `
   .panel-time { font-size: 24px; font-weight: 300; margin-left: auto; padding-left: 16px; font-variant-numeric: tabular-nums; }
   .panel-sub { font-size: 13px; margin: 2px 0 0 38px; color: var(--ptd-muted); }
   .now-panel .panel-sub { color: inherit; }
+  .now-panel .panel-meta { color: var(--ptd-muted); }
   .now-panel.empty .panel-sub { margin-left: 0; }
   .next-panel .bar { margin-top: 10px; }
 
   /* countdown ring */
   .hero.ring.vertical { text-align: center; }
-  .hero.ring.vertical .hero-now { justify-content: center; }
+  .hero.ring.vertical .hero-now-row { justify-content: center; }
+  .hero.ring.vertical .hero-meta { margin-left: 0; }
   .hero.ring.horizontal { display: flex; align-items: center; gap: 18px; }
   .hero.ring svg { flex: none; margin: 0 auto; }
   .ring-side { flex: 1; min-width: 0; }
@@ -261,6 +274,9 @@ const STYLES = `
   svg .svgtag { font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; }
   svg .svgtag.current { fill: var(--ptd-now); }
   svg .svgtag.next { fill: var(--ptd-next); }
+  svg .svgtag.previous { fill: var(--ptd-muted); }
+  svg .svgtag.ends, svg .lbl.ends, svg .tm.ends { fill: var(--ptd-now); }
+  svg .mark.minor.ends { stroke: var(--ptd-now); }
   svg .nowline { stroke: var(--error-color, #ff7043); stroke-width: 2; }
   svg .nowlbl { fill: var(--error-color, #ff7043); font-size: 11px; font-weight: 600; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 12px; color: var(--ptd-muted); }
@@ -366,6 +382,8 @@ const STYLES = `
   .week td span { display: inline-block; min-width: 38px; padding: 4px 2px; border-radius: 8px; }
   .week td.minor { color: var(--ptd-muted); }
   .week td.s-past { opacity: 0.5; }
+  .week td.s-previous { opacity: 0.7; }
+  .week td.s-ends span { color: var(--ptd-now); font-weight: 600; box-shadow: inset 0 0 0 1px var(--ptd-now); }
   .week td.s-current span { background: var(--ptd-now-soft); color: var(--ptd-now); font-weight: 700; }
   .week td.s-next span { background: var(--ptd-next-soft); color: var(--ptd-next); font-weight: 700; }
   .week-note { margin: 10px 4px 0; font-size: 12px; color: var(--ptd-muted); }
@@ -398,6 +416,8 @@ function el(tag, cls, ...children) {
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+// The timeline's text tags for each marked state
+const SVG_TAGS = { current: "NOW", next: "NEXT", previous: "PREV", ends: "ENDS" };
 function svgEl(tag, attrs = {}, text) {
   const node = document.createElementNS(SVG_NS, tag);
   for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
@@ -422,6 +442,8 @@ function duration(ms) {
 function tagFor(state) {
   if (state === "current") return el("span", "tag now", "Now");
   if (state === "next") return el("span", "tag next", "Next");
+  if (state === "previous") return el("span", "tag previous", "Prev");
+  if (state === "ends") return el("span", "tag ends", "Ends");
   return null;
 }
 
@@ -447,9 +469,16 @@ function prayerStatus(days, now) {
     if (sunrise && sunrise.at <= now) current = null;
   }
   const next = events.find((e) => e.at > now && SALAH.includes(e.key)) || null;
+  // The prayer before the current one (Fajr during Dhuhr, as sunrise isn't a
+  // prayer); with no current prayer, the last one that started
+  const previous = salahStarted[salahStarted.length - (current ? 2 : 1)] || null;
+  // While Fajr is current, the sunrise that ends it
+  const ends = current?.key === "fajr"
+    ? events.find((e) => e.index === current.index && e.key === "sunrise") || null
+    : null;
   // The progress bar runs from the last prayer or sunrise to the next prayer
   const since = [...started].reverse().find((e) => e.key !== "imsak") || null;
-  return { current, next, since };
+  return { current, next, previous, ends, since };
 }
 
 // How the card's tap action shows in the editor: schedule, action or none
@@ -673,6 +702,8 @@ class PrayerTimesDisplayCard extends HTMLElement {
   _state(status, index, key, day) {
     if (status.current && status.current.index === index && status.current.key === key) return "current";
     if (status.next && status.next.index === index && status.next.key === key) return "next";
+    if (status.ends && status.ends.index === index && status.ends.key === key) return "ends";
+    if (status.previous && status.previous.index === index && status.previous.key === key) return "previous";
     const at = day[key] && new Date(day[key]);
     return at && at <= this._now ? "past" : "upcoming";
   }
@@ -752,11 +783,18 @@ class PrayerTimesDisplayCard extends HTMLElement {
     return head;
   }
 
-  // "Dhuhr now" and "Asr in 1h 47m" badges
+  // "Fajr 4:58 am" (previous), "Dhuhr now", "Sunrise in 25m" (while Fajr is
+  // current) and "Asr in 1h 47m" badges
   _pills(status) {
     const group = el("div", "pills");
+    if (status.previous) {
+      group.append(el("div", "pill previous", icon("mdi:history"), `${prayer(status.previous.key)[1]} ${this._time(status.previous.at)}`));
+    }
     if (status.current) {
       group.append(el("div", "pill now", el("i", "dot"), `${prayer(status.current.key)[1]} now`));
+    }
+    if (status.ends) {
+      group.append(el("div", "pill ends", icon("mdi:weather-sunny"), `Sunrise in ${duration(status.ends.at - this._now)}`));
     }
     if (status.next) {
       group.append(
@@ -993,14 +1031,30 @@ class PrayerTimesDisplayCard extends HTMLElement {
     return status.next && status.next.index > 0 ? "Next prayer · tomorrow" : "Next prayer";
   }
 
-  // "Now: Dhuhr · since 1:02 pm (1h 5m ago)", or a muted note when no prayer is current
+  // "Ends at sunrise 6:12 am (in 25m)" while Fajr is current
+  _endsText(status) {
+    return status.ends ? `Ends at sunrise ${this._time(status.ends.at)} (in ${duration(status.ends.at - this._now)})` : null;
+  }
+
+  // "Previous: Fajr 4:58 am"
+  _previousText(status) {
+    return status.previous ? `Previous: ${prayer(status.previous.key)[1]} ${this._time(status.previous.at)}` : null;
+  }
+
+  // "Now: Dhuhr · since 1:02 pm (1h 5m ago)", or a muted note when no prayer is
+  // current, with a smaller line below for sunrise and the previous prayer
   _nowLine(status) {
+    const meta = [this._endsText(status), this._previousText(status)].filter(Boolean).join(" · ");
+    const extra = meta ? el("div", "hero-meta", meta) : null;
     if (!status.current) {
-      return el("div", "hero-now empty", el("i", "dot"), el("b", null, "No prayer time"),
-        el("span", null, ` · ${this._noCurrentNote(status)}`));
+      return el("div", "hero-now empty",
+        el("div", "hero-now-row", el("i", "dot"), el("b", null, "No prayer time"), el("span", null, ` · ${this._noCurrentNote(status)}`)),
+        extra);
     }
-    return el("div", "hero-now", el("i", "dot"), "Now: ", el("b", null, prayer(status.current.key)[1]),
-      el("span", null, ` · since ${this._time(status.current.at)} (${duration(this._now - status.current.at)} ago)`));
+    return el("div", "hero-now",
+      el("div", "hero-now-row", el("i", "dot"), "Now: ", el("b", null, prayer(status.current.key)[1]),
+        el("span", null, ` · since ${this._time(status.current.at)} (${duration(this._now - status.current.at)} ago)`)),
+      extra);
   }
 
   _renderHero(status) {
@@ -1098,6 +1152,9 @@ class PrayerTimesDisplayCard extends HTMLElement {
         el("div", "panel-main", el("span", "panel-name", "No prayer time")),
         el("div", "panel-sub", this._noCurrentNote(status))
       );
+    }
+    for (const text of [this._endsText(status), this._previousText(status)]) {
+      if (text) now.append(el("div", "panel-sub panel-meta", text));
     }
 
     const next = el("div", "panel next-panel", el("div", "panel-label", this._nextLabel(status)));
@@ -1281,8 +1338,8 @@ class PrayerTimesDisplayCard extends HTMLElement {
         if (i === 0 || n <= 2) {
           svg.append(svgEl("text", { x: lx, y: above ? ty - 12 : ty, class: `lbl ${state}`, "text-anchor": anchor }, short));
           svg.append(svgEl("text", { x: lx, y: above ? ty : ty + 12, class: `tm ${state}`, "text-anchor": anchor }, this._timeText(day, key)));
-          if (state === "current" || state === "next") {
-            svg.append(svgEl("text", { x: cx, y: above ? ty - 25 : ty + 25, class: `svgtag ${state}`, "text-anchor": "middle" }, state === "current" ? "NOW" : "NEXT"));
+          if (SVG_TAGS[state]) {
+            svg.append(svgEl("text", { x: cx, y: above ? ty - 25 : ty + 25, class: `svgtag ${state}`, "text-anchor": "middle" }, SVG_TAGS[state]));
           }
         } else {
           svg.append(svgEl("text", { x: lx, y: above ? y - 11 : y + 20, class: `tm ${state}`, "text-anchor": anchor }, this._timeText(day, key)));
@@ -1331,8 +1388,8 @@ class PrayerTimesDisplayCard extends HTMLElement {
         const anchor = right ? "start" : "end";
         const label = n > 2 ? this._timeText(day, key) : `${short} ${this._timeText(day, key)}`;
         svg.append(svgEl("text", { x: tx, y: cy + 4, class: `${n > 2 ? "tm" : "lbl"} ${state}`, "text-anchor": anchor }, label));
-        if (state === "current" || state === "next") {
-          svg.append(svgEl("text", { x: tx, y: cy + 17, class: `svgtag ${state}`, "text-anchor": anchor }, state === "current" ? "NOW" : "NEXT"));
+        if (SVG_TAGS[state]) {
+          svg.append(svgEl("text", { x: tx, y: cy + 17, class: `svgtag ${state}`, "text-anchor": anchor }, SVG_TAGS[state]));
         }
       });
       this._appendNow(svg, day, (m) => ({ x1: cx - 34, x2: cx + 34, y1: y(m), y2: y(m) }));

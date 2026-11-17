@@ -348,7 +348,7 @@ If your dashboard resources are managed in YAML (`lovelace: resource_mode: yaml`
 ```yaml
 lovelace:
   resources:
-    - url: /prayer_times_display/prayer-times-display-card.js?v=1.5.2
+    - url: /prayer_times_display/prayer-times-display-card.js?v=1.6.0
       type: module
 ```
 
